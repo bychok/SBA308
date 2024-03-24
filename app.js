@@ -147,7 +147,9 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
   }
 
   // Calculate final average for each learner
-  for (const learnerResult of results) {
+  let i = 0; // Initialize index for while loop
+  while (i < results.length) {
+    const learnerResult = results[i]; // Access current learnerResult using index
     if (learnerResult.totalPossible > 0) {
       learnerResult.avg = parseFloat(
         (learnerResult.totalPoints / learnerResult.totalPossible).toFixed(3)
@@ -155,6 +157,7 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
     }
     delete learnerResult.totalPoints;
     delete learnerResult.totalPossible;
+    i++; // Increment index to move to the next item in the array
   }
 
   return results;
