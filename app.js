@@ -79,28 +79,34 @@ const LearnerSubmissions = [
 function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
   // Check for assignment group belonging to the course
   if (assignmentGroup.course_id !== courseInfo.id) {
-    throw new Error("The assignment does not belong to the given course");
+    throw new Error("Assignment does not belong to the given Course");
   }
 
-  const result = [];
+  const results = [];
 
-  learnerSubmissions.forEach((submission) => {
-    let learnerResult = result.find(
+  // Iterating through learner submissions
+  for (const submission of learnerSubmissions) {
+    let learnerResult = results.find(
       (result) => result.id === submission.learner_id
     );
     if (!learnerResult) {
-      learnerResult = { id: submission.learner_id, avg: 0 };
-      result.push(learnerResult);
+      learnerResult = {
+        id: submission.learner_id,
+        avg: 0,
+        totalPoints: 0,
+        totalPossible: 0,
+      };
+      results.push(learnerResult);
     }
 
     const assignment = assignmentGroup.assignments.find(
       (a) => a.id === submission.assignment_id
     );
-    if (!assignment) return; // Skip if assignment not found in the group
+    if (!assignment) continue; // Skip if assignment not found in the group
 
     const currentDate = new Date();
     const dueDate = new Date(assignment.due_at);
-    if (currentDate < dueDate) return; // Skip if assignment is not yet due
+    if (currentDate < dueDate) continue; // Skip if assignment is not yet due
 
     try {
       if (assignment.points_possible === 0)
@@ -108,37 +114,54 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
       let score = submission.submission.score;
       const submittedAt = new Date(submission.submission.submitted_at);
       if (submittedAt > dueDate) {
-        score -= assignment.points_possible * 0.1; // Deduct 10% for late submission
+        score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission, not allowing negative scores
       }
-      const scorePercentage = (score / assignment.points_possible) * 100;
 
-      // Adding score to learner result
+      // Calculate and store the score as a percentage, rounded to three decimal places
+      const scorePercentage = parseFloat(
+        (score / assignment.points_possible).toFixed(3)
+      );
       learnerResult[assignment.id] = scorePercentage;
 
-      // Updating average
-      if (!learnerResult.totalPoints) {
-        learnerResult.totalPoints = 0;
-        learnerResult.totalWeight = 0;
-      }
-      learnerResult.totalPoints += scorePercentage * assignment.points_possible;
-      learnerResult.totalWeight += assignment.points_possible;
+      // Add to total points and total possible for average calculation
+      learnerResult.totalPoints += score;
+      learnerResult.totalPossible += assignment.points_possible;
     } catch (error) {
       console.error("Error processing submission:", error);
     }
-  });
+  }
 
-  // Calculate final average
-  result.forEach((learnerResult) => {
-    if (learnerResult.totalWeight > 0) {
-      learnerResult.avg = learnerResult.totalPoints / learnerResult.totalWeight;
+  // Calculate final average for each learner
+  for (const learnerResult of results) {
+    if (learnerResult.totalPossible > 0) {
+      learnerResult.avg = parseFloat(
+        (learnerResult.totalPoints / learnerResult.totalPossible).toFixed(3)
+      );
     }
     delete learnerResult.totalPoints;
-    delete learnerResult.totalWeight;
-  });
+    delete learnerResult.totalPossible;
+  }
 
-  return result;
+  return results;
 }
 
 const result = getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions);
 
 console.log(result);
+
+const result2 = [
+  {
+    id: 125,
+    avg: 0.985, // (47 + 150) / (50 + 150)
+    1: 0.94, // 47 / 50
+    2: 1.0, // 150 / 150
+  },
+  {
+    id: 132,
+    avg: 0.82, // (39 + 125) / (50 + 150)
+    1: 0.78, // 39 / 50
+    2: 0.833, // late: (140 - 15) / 150
+  },
+];
+
+console.log(result2);
