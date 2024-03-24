@@ -79,7 +79,9 @@ const LearnerSubmissions = [
 function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
   // Check for assignment group belonging to the course
   if (assignmentGroup.course_id !== courseInfo.id) {
-    throw new Error("Assignment does not belong to the given Course");
+    throw new Error(
+      `Assignment (ID: ${assignmentGroup.course_id}) does not belong to the given Course (ID: ${courseInfo.id})`
+    );
   }
 
   const results = [];
