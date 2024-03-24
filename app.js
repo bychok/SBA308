@@ -77,7 +77,6 @@ const LearnerSubmissions = [
 ];
 
 function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
-  // Check for assignment group belonging to the course
   if (assignmentGroup.course_id !== courseInfo.id) {
     throw new Error(
       `Assignment (ID: ${assignmentGroup.course_id}) does not belong to the given Course (ID: ${courseInfo.id})`
@@ -86,70 +85,58 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
 
   const results = [];
 
-  // Iterating through learner submissions
-  for (const submission of learnerSubmissions) {
-    let learnerResult = results.find(
-      (result) => result.id === submission.learner_id
-    );
+  // Helper function to find or create a learner result
+  function findOrCreateLearnerResult(learnerId) {
+    let learnerResult = results.find((result) => result.id === learnerId);
     if (!learnerResult) {
       learnerResult = {
-        id: submission.learner_id,
+        id: learnerId,
         avg: 0,
         totalPoints: 0,
         totalPossible: 0,
       };
       results.push(learnerResult);
     }
+    return learnerResult;
+  }
 
+  // Helper function to calculate and update scores
+  function updateScores(learnerResult, assignment, score, isLate) {
+    if (isLate) {
+      score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission
+    }
+    const scorePercentage = parseFloat(
+      (score / assignment.points_possible).toFixed(3)
+    );
+    learnerResult[assignment.id] = scorePercentage;
+    learnerResult.totalPoints += score;
+    learnerResult.totalPossible += assignment.points_possible;
+  }
+
+  for (const submission of learnerSubmissions) {
+    const learnerResult = findOrCreateLearnerResult(submission.learner_id);
     const assignment = assignmentGroup.assignments.find(
       (a) => a.id === submission.assignment_id
     );
-    if (!assignment) {
-      // Skip if assignment not found in the group
+    if (!assignment) continue; // Skip if assignment not found in the group
+
+    const currentDate = new Date();
+    const dueDate = new Date(assignment.due_at);
+    if (currentDate < dueDate) continue; // Skip if assignment is not yet due
+
+    if (assignment.points_possible === 0) {
+      console.error("Points possible is zero");
       continue;
-    } else {
-      const currentDate = new Date();
-      const dueDate = new Date(assignment.due_at);
-
-      if (currentDate < dueDate) {
-        // Skip if assignment is not yet due
-        continue;
-      } else {
-        try {
-          if (assignment.points_possible === 0) {
-            throw new Error("Points possible is zero");
-          } else {
-            let score = submission.submission.score;
-            const submittedAt = new Date(submission.submission.submitted_at);
-            // Determine if the submission was late and deduct points accordingly
-            const isLate = submittedAt > dueDate;
-            if (isLate) {
-              score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission, not allowing negative scores
-            }
-
-            // Calculate and store the score as a percentage, rounded to three decimal places
-            const scorePercentage = parseFloat(
-              (score / assignment.points_possible).toFixed(3)
-            );
-            learnerResult[assignment.id] = scorePercentage;
-
-            // Optionally, use the isLate flag for additional processing or output
-
-            // Add to total points and total possible for average calculation
-            learnerResult.totalPoints += score;
-            learnerResult.totalPossible += assignment.points_possible;
-          }
-        } catch (error) {
-          console.error("Error processing submission:", error);
-        }
-      }
     }
+
+    let score = submission.submission.score;
+    const submittedAt = new Date(submission.submission.submitted_at);
+    const isLate = submittedAt > dueDate;
+    updateScores(learnerResult, assignment, score, isLate);
   }
 
-  // Calculate final average for each learner
-  let i = 0; // Initialize index for while loop
-  while (i < results.length) {
-    const learnerResult = results[i]; // Access current learnerResult using index
+  // Helper function to finalize average calculation
+  function finalizeAverage(learnerResult) {
     if (learnerResult.totalPossible > 0) {
       learnerResult.avg = parseFloat(
         (learnerResult.totalPoints / learnerResult.totalPossible).toFixed(3)
@@ -157,7 +144,13 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
     }
     delete learnerResult.totalPoints;
     delete learnerResult.totalPossible;
-    i++; // Increment index to move to the next item in the array
+  }
+
+  // Use a while loop for final average calculation
+  let i = 0;
+  while (i < results.length) {
+    finalizeAverage(results[i]);
+    i++;
   }
 
   return results;
