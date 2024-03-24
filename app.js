@@ -104,32 +104,41 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
     const assignment = assignmentGroup.assignments.find(
       (a) => a.id === submission.assignment_id
     );
-    if (!assignment) continue; // Skip if assignment not found in the group
+    if (!assignment) {
+      // Skip if assignment not found in the group
+      continue;
+    } else {
+      const currentDate = new Date();
+      const dueDate = new Date(assignment.due_at);
 
-    const currentDate = new Date();
-    const dueDate = new Date(assignment.due_at);
-    if (currentDate < dueDate) continue; // Skip if assignment is not yet due
+      if (currentDate < dueDate) {
+        // Skip if assignment is not yet due
+        continue;
+      } else {
+        try {
+          if (assignment.points_possible === 0) {
+            throw new Error("Points possible is zero");
+          } else {
+            let score = submission.submission.score;
+            const submittedAt = new Date(submission.submission.submitted_at);
+            if (submittedAt > dueDate) {
+              score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission, not allowing negative scores
+            }
 
-    try {
-      if (assignment.points_possible === 0)
-        throw new Error("Points possible is zero");
-      let score = submission.submission.score;
-      const submittedAt = new Date(submission.submission.submitted_at);
-      if (submittedAt > dueDate) {
-        score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission, not allowing negative scores
+            // Calculate and store the score as a percentage, rounded to three decimal places
+            const scorePercentage = parseFloat(
+              (score / assignment.points_possible).toFixed(3)
+            );
+            learnerResult[assignment.id] = scorePercentage;
+
+            // Add to total points and total possible for average calculation
+            learnerResult.totalPoints += score;
+            learnerResult.totalPossible += assignment.points_possible;
+          }
+        } catch (error) {
+          console.error("Error processing submission:", error);
+        }
       }
-
-      // Calculate and store the score as a percentage, rounded to three decimal places
-      const scorePercentage = parseFloat(
-        (score / assignment.points_possible).toFixed(3)
-      );
-      learnerResult[assignment.id] = scorePercentage;
-
-      // Add to total points and total possible for average calculation
-      learnerResult.totalPoints += score;
-      learnerResult.totalPossible += assignment.points_possible;
-    } catch (error) {
-      console.error("Error processing submission:", error);
     }
   }
 
