@@ -76,22 +76,65 @@ const LearnerSubmissions = [
   },
 ];
 
-function getLearnerData(course, ag, submissions) {
-  // here, we would process this data to achieve the desired result.
-  const result = [
-    {
-      id: 125,
-      avg: 0.985, // (47 + 150) / (50 + 150)
-      1: 0.94, // 47 / 50
-      2: 1.0, // 150 / 150
-    },
-    {
-      id: 132,
-      avg: 0.82, // (39 + 125) / (50 + 150)
-      1: 0.78, // 39 / 50
-      2: 0.833, // late: (140 - 15) / 150
-    },
-  ];
+function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
+  // Check for assignment group belonging to the course
+  if (assignmentGroup.course_id !== courseInfo.id) {
+    throw new Error("The assignment does not belong to the given course");
+  }
+
+  const result = [];
+
+  learnerSubmissions.forEach((submission) => {
+    let learnerResult = result.find(
+      (result) => result.id === submission.learner_id
+    );
+    if (!learnerResult) {
+      learnerResult = { id: submission.learner_id, avg: 0 };
+      result.push(learnerResult);
+    }
+
+    const assignment = assignmentGroup.assignments.find(
+      (a) => a.id === submission.assignment_id
+    );
+    if (!assignment) return; // Skip if assignment not found in the group
+
+    const currentDate = new Date();
+    const dueDate = new Date(assignment.due_at);
+    if (currentDate < dueDate) return; // Skip if assignment is not yet due
+
+    try {
+      if (assignment.points_possible === 0)
+        throw new Error("Points possible is zero");
+      let score = submission.submission.score;
+      const submittedAt = new Date(submission.submission.submitted_at);
+      if (submittedAt > dueDate) {
+        score -= assignment.points_possible * 0.1; // Deduct 10% for late submission
+      }
+      const scorePercentage = (score / assignment.points_possible) * 100;
+
+      // Adding score to learner result
+      learnerResult[assignment.id] = scorePercentage;
+
+      // Updating average
+      if (!learnerResult.totalPoints) {
+        learnerResult.totalPoints = 0;
+        learnerResult.totalWeight = 0;
+      }
+      learnerResult.totalPoints += scorePercentage * assignment.points_possible;
+      learnerResult.totalWeight += assignment.points_possible;
+    } catch (error) {
+      console.error("Error processing submission:", error);
+    }
+  });
+
+  // Calculate final average
+  result.forEach((learnerResult) => {
+    if (learnerResult.totalWeight > 0) {
+      learnerResult.avg = learnerResult.totalPoints / learnerResult.totalWeight;
+    }
+    delete learnerResult.totalPoints;
+    delete learnerResult.totalWeight;
+  });
 
   return result;
 }
