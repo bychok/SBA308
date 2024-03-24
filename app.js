@@ -121,7 +121,9 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
           } else {
             let score = submission.submission.score;
             const submittedAt = new Date(submission.submission.submitted_at);
-            if (submittedAt > dueDate) {
+            // Determine if the submission was late and deduct points accordingly
+            const isLate = submittedAt > dueDate;
+            if (isLate) {
               score = Math.max(0, score - assignment.points_possible * 0.1); // Deduct 10% for late submission, not allowing negative scores
             }
 
@@ -130,6 +132,8 @@ function getLearnerData(courseInfo, assignmentGroup, learnerSubmissions) {
               (score / assignment.points_possible).toFixed(3)
             );
             learnerResult[assignment.id] = scorePercentage;
+
+            // Optionally, use the isLate flag for additional processing or output
 
             // Add to total points and total possible for average calculation
             learnerResult.totalPoints += score;
